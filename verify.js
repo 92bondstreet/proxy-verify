@@ -361,8 +361,10 @@ Verify.prototype.verifyProxy = function(proxy) {
                 }
             }
             else {
-							if (res.statusCode !== 200) {
-								return returnBroadcast({err: {code:"STATUS_3xx_4xx_5xx"}, headers: res.headers, data: data});
+              var regEx = /^[2-3][0-9][0-9]$/
+
+							if (! regEx.test(res.statusCode)) {
+								return returnBroadcast({err: {code:"STATUS_4xx_5xx"}, headers: res.headers, data: data});
 							}
 
               if (selector) {
