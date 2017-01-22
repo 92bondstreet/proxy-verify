@@ -100,6 +100,8 @@ function Verify(options) {
     this.regex = options.regex || false;
     // selector for matching body content
     this.selector = options.selector || false;
+    // we allow to give list of elite proxies by requiring the module
+    this.elite = options.elite || [];
 
     // No point having workers that do nothing, so set the no. of concurrent requests to match the no. of workers
     if (this.workers > this.concurrentRequests)
@@ -110,7 +112,7 @@ function Verify(options) {
         this.url = "http://iplookup.flashfxp.com/";
 
     // internal variables
-    this._proxies = [];
+    this._proxies = [];
     this._verifiedProxies = [];
     this._workersFinished = 0;
     this._stats = {
@@ -252,6 +254,12 @@ Verify.prototype.main = function() {
         });
 
         // now initiate the first function to read our proxies
+        // either from module
+        // either from input file
+        if (this.elite.length) {
+          return this.emit('readProxies', this.elite);
+        }
+
         if (!this.readProxies())
             process.exit();
 
