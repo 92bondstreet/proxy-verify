@@ -48,16 +48,17 @@
 'use strict';
 
 // internal nodejs libraries
+const chalk = require('chalk');
 const cheerio = require('cheerio');
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
 const cluster = require('cluster');
 const EventEmitter = require('events').EventEmitter;
-const http = require('http');
+const request = require('superagent');
 const url = require('url');
 
-const chalk = require('chalk');
+require('superagent-proxy')(request);
 
 /**
  * This follows the observer design pattern. We take arguments first from options, then argv then resort to defaults
@@ -329,60 +330,52 @@ Verify.prototype.verifyProxy = function(proxy) {
         }, _this.requestTimeout);
     }
 
-    r = http.get({
-        host: host,
-        port: port,
-        method: 'GET',
-        path: _this.url,
-        headers: {
-            Host: headerHost,
-            'User-Agent' : _this.userAgent()
-        }
-    }, function(res) {
-        var data = '';
+    const agent = request.agent();
 
-        res.setEncoding('utf8');
-        res.setTimeout(_this.requestTimeout);
-        res.on('timeout', function() {
-            res.abort();
-        });
-        // seems like you need this listener to be present
-        res.on('data', function(d){
-            data += d;
-        });
-        res.on('end', function() {
-            clearTimeout(timer);
-            if (_this.ip) {
-                if (data != host) {
-                    returnBroadcast({err: {code:"PROXY_MISMATCH"}, headers: res.headers, data: data});
-                }
-                else {
-                    returnBroadcast({err: null, headers: res.headers, data: data});
-                }
+    r = agent
+      .get(_this.url)
+      .set('Host', headerHost)
+      .set('User-Agent', _this.userAgent())
+      .proxy(`http://${proxy}`)
+      .timeout(_this.requestTimeout)
+      .end(function (err, res) {
+        if (err) {
+          const code = err.status || err.message;
+
+          clearTimeout(timer);
+          return returnBroadcast({err: {code}, headers: {}});
+        }
+        var data = res.text;
+
+        clearTimeout(timer);
+
+        if (_this.ip) {
+            if (data != host) {
+                returnBroadcast({err: {code:"PROXY_MISMATCH"}, headers: res.headers, data: data});
             }
             else {
-              var regEx = /^[2-3][0-9][0-9]$/
-
-							if (! regEx.test(res.statusCode)) {
-								return returnBroadcast({err: {code:"STATUS_4xx_5xx"}, headers: res.headers, data: data});
-							}
-
-              if (selector) {
-                if (_this.query(data, selector)) {
-                  returnBroadcast({err: null, headers: res.headers, data: data});
-                }
-                else {
-                  returnBroadcast({err: {code:"SELECTOR_NOT_FOUND"}, headers: res.headers, data: data});
-                }
-              }
-
-							returnBroadcast({err: null, headers: res.headers, data: data});
+                returnBroadcast({err: null, headers: res.headers, data: data});
             }
-        });
-    }).on('error', function(err) {
-        clearTimeout(timer);
-        returnBroadcast({err: err, headers: {}});
-    });
+        }
+        else {
+          var regEx = /^[2-3][0-9][0-9]$/
+
+          if (! regEx.test(res.statusCode)) {
+            return returnBroadcast({err: {code:"STATUS_4xx_5xx"}, headers: res.headers, data: data});
+          }
+
+          if (selector) {
+            if (_this.query(data, selector)) {
+              returnBroadcast({err: null, headers: res.headers, data: data});
+            }
+            else {
+              returnBroadcast({err: {code:"SELECTOR_NOT_FOUND"}, headers: res.headers, data: data});
+            }
+          }
+
+          returnBroadcast({err: null, headers: res.headers, data: data});
+        }
+      });
 };
 
 /**
