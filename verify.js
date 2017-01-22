@@ -214,6 +214,7 @@ Verify.prototype.main = function() {
                                 if (_this._stats.good < 1) {
                                     _this.log();
                                     _this.log('c:red', "No verified proxies :(");
+																		_this.emit('extNothing', data);
                                     return false;
                                 }
                                 else {
