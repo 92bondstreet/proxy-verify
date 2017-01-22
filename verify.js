@@ -8,7 +8,7 @@
  * ip:port
  *
  * Installation:
- * 
+ *
  * Copy verify.js into it's own directory then run:
  * > npm install
  * > chmod +x verify.js
@@ -19,20 +19,20 @@
  * Will read a the input proxies from the file proxies.txt and save verified proxies to proxies_verified.txt
  *
  * ./verify.js -i proxies/ -o proxies_verified.txt -u "http://digg.com"
- * 
+ *
  * As a module:
- * 
+ *
  * This script can also be used as a module, which is helpful if you want to control the flow to and from the program
  * to do this use the following in your new file:
- * 
+ *
  *  const Verify = require('./verify');
  *  var verifyObj = { url: 'http://google.com'}  // all options are available here
  *  var verify = new Verify(verifyObj);
  *  verify.main();
- * 
+ *
  *  // you can also listen for events (all events are the same in verify but prepended w/ ext)
  *  verify.on('extverifiedProxy', function(data) { .. });
- * 
+ *
  * A full list of events are here:
  *  extverifiedProxy, (data)
  *  extdone, ()
@@ -163,7 +163,7 @@ Verify.prototype.main = function() {
                     switch (msg.cmd) {
                         case 'verifiedProxy':
                             var data = msg.data;
-                            
+
                             // emit for use as a module
                             _this.emit('extVerifiedProxy', data);
                             _this._stats.done++;
@@ -184,7 +184,7 @@ Verify.prototype.main = function() {
                                 }
 
                                 _this.log("c:gray bold", total + '% ', "c:green", "\u2714 ", "c:green bold", data.proxy,
-                                    "c:green", " in " + _this.runTime(data.duration), 
+                                    "c:green", " in " + _this.runTime(data.duration),
                                     (_this.regex ? (chalk.green(' [') + chalk.green.bold(_this._stats.regex) + chalk.green('] ')) : ''),
                                     (_this.verbose ? chalk.gray.bold(' ' +
                                         JSON.stringify(data.data).replace(/":"/g, ",") // headers
@@ -357,7 +357,11 @@ Verify.prototype.verifyProxy = function(proxy) {
                 }
             }
             else {
-                returnBroadcast({err: null, headers: res.headers, data: data});
+							if (res.statusCode !== 200) {
+								return returnBroadcast({err: {code:"STATUS_3xx_4xx_5xx"}, headers: res.headers, data: data});
+							}
+
+							returnBroadcast({err: null, headers: res.headers, data: data});
             }
         });
     }).on('error', function(err) {
@@ -387,7 +391,7 @@ Verify.prototype.dispatchRequest = function(id) {
  */
 Verify.prototype.readProxies = function() {
     var _this = this;
-    
+
     var files = [];
     var proxies = [];
     var readFile = function(fileName) {
