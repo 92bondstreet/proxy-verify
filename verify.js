@@ -48,6 +48,7 @@
 'use strict';
 
 // internal nodejs libraries
+const cheerio = require('cheerio');
 const fs = require('fs');
 const util = require('util');
 const path = require('path');
@@ -96,6 +97,8 @@ function Verify(options) {
     this.noOutput = options.noOutput || false;
     // regex for matching body content, you don't need the enclosing /. this will inc a counter each time a match occurs
     this.regex = options.regex || false;
+    // selector for matching body content
+    this.selector = options.selector || false;
 
     // No point having workers that do nothing, so set the no. of concurrent requests to match the no. of workers
     if (this.workers > this.concurrentRequests)
@@ -310,6 +313,7 @@ Verify.prototype.verifyProxy = function(proxy) {
     var headerHost = url.parse(_this.url).hostname;
     var r;
     var returned = false;
+    var selector = _this.selector;
     var returnBroadcast = function(data) {
         if (returned)
             return false;
@@ -360,6 +364,15 @@ Verify.prototype.verifyProxy = function(proxy) {
 							if (res.statusCode !== 200) {
 								return returnBroadcast({err: {code:"STATUS_3xx_4xx_5xx"}, headers: res.headers, data: data});
 							}
+
+              if (selector) {
+                if (_this.query(data, selector)) {
+                  returnBroadcast({err: null, headers: res.headers, data: data});
+                }
+                else {
+                  returnBroadcast({err: {code:"SELECTOR_NOT_FOUND"}, headers: res.headers, data: data});
+                }
+              }
 
 							returnBroadcast({err: null, headers: res.headers, data: data});
             }
@@ -705,6 +718,11 @@ Verify.prototype.userAgent = function() {
     return agents[ Math.floor( Math.random() * agents.length ) ];
 };
 
+Verify.prototype.query = function(data, selector) {
+  const $ = cheerio.load(data);
+
+  return $('body').find(selector).length > 0;
+}
 
 util.inherits(Verify, EventEmitter);
 
@@ -727,6 +745,7 @@ if (process.argv[1] == __filename) {
         .option("-d, --debug", "Debug stores speed output to debug_verify.log")
         .option("-n, --nooutput", "Disable all output")
         .option("-r, --regex [regex]", "Will use regex to match body content, if matched will increment a counter displayed at the end")
+        .option("-q, --selector [selector]", "Will use css selector to match body content, if not matched will return error")
         .parse(process.argv);
 
     var opts = {};
@@ -763,6 +782,8 @@ if (process.argv[1] == __filename) {
         opts.nooutput = program.nooutput;
     if (program.regex)
         opts.regex = program.regex;
+    if (program.selector)
+        opts.selector = program.selector;
 
     var verify = new Verify(opts);
     verify.main();
