@@ -100,8 +100,8 @@ function Verify(options) {
     this.regex = options.regex || false;
     // selector for matching body content
     this.selector = options.selector || false;
-    // we allow to give list of elite proxies by requiring the module
-    this.elite = options.elite || [];
+    // we allow to give list of fetch proxies by requiring the module
+    this.fetch = options.fetch || [];
 
     // No point having workers that do nothing, so set the no. of concurrent requests to match the no. of workers
     if (this.workers > this.concurrentRequests)
@@ -257,8 +257,8 @@ Verify.prototype.main = function() {
         // now initiate the first function to read our proxies
         // either from module
         // either from input file
-        if (this.elite.length) {
-          return this.emit('readProxies', this.elite);
+        if (this.fetch) {
+          return this.emit('fetchProxies');
         }
 
         if (!this.readProxies())
