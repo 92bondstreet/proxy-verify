@@ -375,10 +375,10 @@ Verify.prototype.verifyProxy = function(proxy) {
 
           if (selector) {
             if (_this.query(data, selector)) {
-              returnBroadcast({err: null, headers: res.headers, data: data});
+              returnBroadcast({err: null, headers: res.headers, data: data, redirects: res.redirects});
             }
             else {
-              returnBroadcast({err: {code:"SELECTOR_NOT_FOUND"}, headers: res.headers, data: data});
+              returnBroadcast({err: {code:"SELECTOR_NOT_FOUND"}, headers: res.headers, data: data, redirects: res.redirects});
             }
           }
 
