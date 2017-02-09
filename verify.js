@@ -101,7 +101,7 @@ function Verify(options) {
     // selector for matching body content
     this.selector = options.selector || false;
     // we allow to give list of fetch proxies by requiring the module
-    this.fetch = options.fetch || [];
+    this.fetch = options.fetch || false;
 
     // No point having workers that do nothing, so set the no. of concurrent requests to match the no. of workers
     if (this.workers > this.concurrentRequests)
