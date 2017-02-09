@@ -67,7 +67,8 @@ require('superagent-proxy')(request);
 function Verify(options) {
     options = options || {};
     // the url we'll use to verify the proxies
-    this.url = options.url || "http://digg.com/";
+    this.urls = options.urls || [];
+    this.url = options.url || this.urls.shift() || "http://digg.com/";
     // number of instances of program to run
     this.workers = options.workers || require('os').cpus().length;
     // hard limit, feel free to remove this, but I find anymore than 4 is overkill
@@ -113,6 +114,7 @@ function Verify(options) {
 
     // internal variables
     this._proxies = [];
+    this._elite = [];
     this._verifiedProxies = [];
     this._workersFinished = 0;
     this._stats = {
@@ -135,8 +137,9 @@ Verify.prototype.main = function() {
 
     // Our master thread appropriates tasks to all workers and coordinates the program flow
     if (cluster.isMaster) {
+        var message = this.urls.length ?  (this.urls.length + 1) + " urls"  : this.url;
 
-        _this.log("Verifying proxies using ", "c:bold", this.url,
+        _this.log("Verifying proxies using ", "c:bold", message,
             " with ", "c:bold", this.workers, " workers, ",
             "c:bold", this.concurrentRequests, " concurrent requests",
             " and a ", (this.strict ? chalk.bold('strict ') : ''), "c:bold", this.requestTimeout, "ms timeout",
@@ -245,8 +248,14 @@ Verify.prototype.main = function() {
             });
         });
 
+        // bind next url event to make a batch processing
+        _this.on('next', function () {
+          _this.next();
+        });
+
         // bind our callbacks
         _this.on('readProxies', function(proxies){
+            _this._elite = Array.from(proxies);
             // Ensure we dont have more concurrentRequests than proxies
             if (_this.concurrentRequests > proxies.length)
                 _this.concurrentRequests = proxies.length;
@@ -268,21 +277,7 @@ Verify.prototype.main = function() {
     // worker
     else {
         // receive messages from master
-        process.on('message', function(msg) {
-            if (msg.cmd) {
-                switch(msg.cmd) {
-                    case 'verifyProxy':
-                        _this.verifyProxy(msg.data);
-                        break;
-                    case 'shutdown':
-                        process.disconnect();
-                        break;
-                    default:
-                        _this.log('Invalid msg: ' + msg.cmd + ': ' + JSON.stringify(msg.data));
-                        break;
-                }
-            }
-        });
+        process.on('message', this.proceed.bind(this));
 
     }
 };
@@ -295,7 +290,7 @@ Verify.prototype.main = function() {
 Verify.prototype.startWorkers = function(proxies) {
     var _this = this;
 
-    this._proxies = proxies;
+    this._proxies = Array.from(proxies);
     this._stats.total = proxies.length;
 
     var lastWorker = 1;
@@ -722,10 +717,52 @@ Verify.prototype.userAgent = function() {
     return agents[ Math.floor( Math.random() * agents.length ) ];
 };
 
+/**
+ * Check if the given selector exists
+ * @param  {String} data
+ * @param  {String} selector
+ * @return {Boolean}
+ */
 Verify.prototype.query = function(data, selector) {
   const $ = cheerio.load(data);
 
   return $('body').find(selector).length > 0;
+}
+
+/**
+ * Proceed the next url
+ */
+Verify.prototype.next = function () {
+  process.on('message', this.proceed.bind(this));
+  if (!this.urls.length) {
+    return this.emit('end');
+  }
+
+  this.url = this.urls.shift();
+  this.startWorkers(this._elite);
+}
+
+/**
+ * Message to proceed
+ * @param  {Object} msg
+ */
+Verify.prototype.proceed = function (msg) {
+  if (msg.cmd) {
+      switch(msg.cmd) {
+          case 'verifyProxy':
+              this.verifyProxy(msg.data);
+              break;
+          case 'suspend':
+              process.removeListener('message', this.proceed.bind(this));
+              break;
+          case 'shutdown':
+              process.disconnect();
+              break;
+          default:
+              this.log('Invalid msg: ' + msg.cmd + ': ' + JSON.stringify(msg.data));
+              break;
+      }
+  }
 }
 
 util.inherits(Verify, EventEmitter);
