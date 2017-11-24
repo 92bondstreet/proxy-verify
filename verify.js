@@ -188,7 +188,6 @@ Verify.prototype.main = function() {
                                   _this.good(data);
                                 }
 
-
                                 _this.log("c:gray bold", total + '% ', "c:green", "\u2714 ", "c:green bold", data.proxy,
                                     "c:green", " in " + _this.runTime(data.duration),
                                     (_this.regex ? (chalk.green(' [') + chalk.green.bold(_this._stats.regex) + chalk.green('] ')) : ''),
@@ -200,6 +199,8 @@ Verify.prototype.main = function() {
                                         : ''
                                     )
                                 );
+
+                                _this.saveProxies();
                             }
                             else {
                                 _this._stats.bad++;
