@@ -176,18 +176,18 @@ Verify.prototype.main = function() {
                             var total = Math.round(_this._stats.done / _this._stats.total * 100);
                             // good proxy
                             if (!data.err) {
-                                _this._verifiedProxies.push(data.proxy);
-                                _this._stats.good++;
-                                _this._stats.responses.push(((new Date().getTime() - data.duration) / 1e3));
-
                                 // attempt to match body content
+                                // the regex validation is a strict validation
                                 if (_this.regex) {
                                     var re = new RegExp(_this.regex);
                                     // easier to just convert it to a string
                                     if (re.exec(JSON.stringify(data.data))) {
-                                        _this._stats.regex++;
+                                        _this.good(data);
                                     }
+                                } else {
+                                  _this.good(data);
                                 }
+
 
                                 _this.log("c:gray bold", total + '% ', "c:green", "\u2714 ", "c:green bold", data.proxy,
                                     "c:green", " in " + _this.runTime(data.duration),
@@ -286,6 +286,15 @@ Verify.prototype.main = function() {
 
     }
 };
+
+Verify.prototype.good = function (data) {
+  var _this = this;
+
+  _this._stats.regex++;
+  _this._verifiedProxies.push(data.proxy);
+  _this._stats.good++;
+  _this._stats.responses.push(((new Date().getTime() - data.duration) / 1e3));
+}
 
 /**
  * Start handing out proxies to the workers. As they complete their request they'll automatically be given the next
