@@ -57,6 +57,7 @@ const cluster = require('cluster');
 const EventEmitter = require('events').EventEmitter;
 const request = require('superagent');
 const url = require('url');
+const geoip = require('geoip-lite');
 
 require('superagent-proxy')(request);
 
@@ -372,7 +373,7 @@ Verify.prototype.verifyProxy = function(proxy) {
             if (data != host) {
                 returnBroadcast({err: {code:"PROXY_MISMATCH"}, headers: res.headers, data: data});
             }
-            else {
+            else {      
                 returnBroadcast({err: null, headers: res.headers, data: data});
             }
         }
@@ -390,6 +391,12 @@ Verify.prototype.verifyProxy = function(proxy) {
             else {
               returnBroadcast({err: {code:"SELECTOR_NOT_FOUND"}, headers: res.headers, data: data, redirects: res.redirects});
             }
+          }
+          
+          const geo = geoip.lookup(host);
+                    
+          if (geo.country !== 'FR') {
+            return returnBroadcast({err: {code:"COUNTRY_MISMATCH"}, headers: res.headers, data: data});
           }
 
           returnBroadcast({err: null, headers: res.headers, data: data});
