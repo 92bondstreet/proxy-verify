@@ -3,6 +3,9 @@
   "version": "0.0.1",
   "description": "A NodeJS command-line script to verify lists of proxies actually work",
   "author": "jthatch",
+  "bin": {
+    "proxy-verify": "bin.js"
+  },
   "main": "verify.js",
   "scripts": {
     "start": "node verify.js"
