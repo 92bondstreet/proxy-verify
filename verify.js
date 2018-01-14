@@ -59,6 +59,20 @@ const url = require('url');
 
 require('superagent-proxy')(request);
 
+function replaceExt (current, extension) {
+  if (typeof current !== 'string') {
+    return current;
+  }
+
+  if (current.length === 0) {
+    return current;
+  }
+
+  const file = path.basename(current, path.extname(current)) + extension;
+
+  return path.join(path.dirname(current), file);
+}
+
 /**
  * This follows the observer design pattern. We take arguments first from options, then argv then resort to defaults
  * @constructor
@@ -101,6 +115,8 @@ function Verify(options) {
     this.selector = options.selector || false;
     // we allow to give list of fetch proxies by requiring the module
     this.fetch = options.fetch || false;
+    // file format to save the list of proxies
+    this.export = options.export;
 
     // No point having workers that do nothing, so set the no. of concurrent requests to match the no. of workers
     if (this.workers > this.concurrentRequests)
@@ -529,7 +545,16 @@ Verify.prototype.saveProxies = function() {
         }
     }
 
-    fs.writeFileSync(this.outputFile, this._verifiedProxies.join("\n"), "utf8");
+    let verifiedProxies = this._verifiedProxies;
+
+    if (this.export === 'haproxy') {
+      const haproxies = verifiedProxies.map(proxy => `server ${proxy} ${proxy} check`);
+      const file = replaceExt(this.outputFile, '.haproxy');
+
+      fs.writeFileSync(file, haproxies.join('\n'), 'utf8');
+    }
+
+    fs.writeFileSync(this.outputFile, verifiedProxies.join('\n'), "utf8");
     this.log("c:cyan", "Saved ", "c:cyan bold", this._verifiedProxies.length, "c:cyan", " unique proxies to ",
         "c:cyan bold", this.outputFile);
     //fs.writeFileSync(this.outputFile, this._verifiedProxies.join("\n"), "utf8");
