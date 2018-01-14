@@ -46,6 +46,11 @@ program
     '-e, --export [export]',
     'Export the list of proxies in the specified export format'
   )
+  .option(
+    '-l, --limit [limit]',
+    'Limit to n first good verified proxies',
+    parseInt
+  )
   .parse(process.argv);
 
 var opts = {};
@@ -101,6 +106,9 @@ if (program.selector) {
 }
 if (program.export) {
   opts.export = program.export;
+}
+if (program.limit) {
+  opts.limit = program.limit;
 }
 
 var verify = new Verify(opts);

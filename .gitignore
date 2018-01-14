@@ -1,3 +1,4 @@
 node_modules/
-proxies/fetched/*.txt
-proxies/verified/*.txt
+proxies
+*.txt
+*.haproxy

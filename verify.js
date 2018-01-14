@@ -117,6 +117,8 @@ function Verify(options) {
     this.fetch = options.fetch || false;
     // file format to save the list of proxies
     this.export = options.export;
+    // limit of good proxies to save
+    this.limit = options.limit || -1;
 
     // No point having workers that do nothing, so set the no. of concurrent requests to match the no. of workers
     if (this.workers > this.concurrentRequests)
@@ -223,7 +225,8 @@ Verify.prototype.main = function() {
                                     "c:red", " error ", "c:red bold", data.err.code,
                                     "c:red", " in " + _this.runTime(data.duration));
                             }
-                            if (_this._stats.done == _this._stats.total) {
+
+                            if (_this._stats.done == _this._stats.total || _this._stats.good === _this.limit) {
                                 _this.broadcastToWorkers(false, 'shutdown');
                                 _this.emit('extdone');
                                 _this._workersFinished = 0;
