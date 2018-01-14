@@ -42,6 +42,15 @@ program
     '-q, --selector [selector]',
     'Will use css selector to match body content, if not matched will return error'
   )
+  .option(
+    '-e, --export [export]',
+    'Export the list of proxies in the specified export format'
+  )
+  .option(
+    '-l, --limit [limit]',
+    'Limit to n first good verified proxies',
+    parseInt
+  )
   .parse(process.argv);
 
 var opts = {};
@@ -94,6 +103,12 @@ if (program.regex) {
 }
 if (program.selector) {
   opts.selector = program.selector;
+}
+if (program.export) {
+  opts.export = program.export;
+}
+if (program.limit) {
+  opts.limit = program.limit;
 }
 
 var verify = new Verify(opts);
