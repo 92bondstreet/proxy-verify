@@ -43,7 +43,7 @@
  * file that was distributed with this source code.
  */
 
-/*jshint esversion: 6 */
+/*eslint-disable no-underscore-dangle*/
 'use strict';
 
 // internal nodejs libraries
@@ -57,8 +57,18 @@ const EventEmitter = require('events').EventEmitter;
 const request = require('superagent');
 const url = require('url');
 
+const log = require('./log');
+
 require('superagent-proxy')(request);
 
+const SHUTDOWN_TIMEOUT = 1000 * 60 * 10;
+
+/**
+ * Replace the given file extension
+ * @param  {String} current
+ * @param  {String} extension
+ * @return {String}
+ */
 function replaceExt (current, extension) {
   if (typeof current !== 'string') {
     return current;
@@ -72,6 +82,10 @@ function replaceExt (current, extension) {
 
   return path.join(path.dirname(current), file);
 }
+
+process.on('uncaughtException', (err) => {
+  console.log(`Caught exception: ${err}`);
+});
 
 /**
  * This follows the observer design pattern. We take arguments first from options, then argv then resort to defaults
@@ -145,6 +159,11 @@ function Verify(options) {
     this._startTime = new Date().getTime();
 
     EventEmitter.call(this);
+
+    this.shutdownTimeout = setTimeout(() => {
+      this.log('c:bgRed', 'global timeout, it takes too time to verify');
+      this.shutdown()
+    }, SHUTDOWN_TIMEOUT);
 }
 
 Verify.prototype.main = function() {
@@ -227,32 +246,7 @@ Verify.prototype.main = function() {
                             }
 
                             if (_this._stats.done == _this._stats.total || _this._stats.good === _this.limit) {
-                                _this.broadcastToWorkers(false, 'shutdown');
-                                _this.emit('extdone');
-                                _this._workersFinished = 0;
-                                if (_this._stats.good < 1) {
-                                    _this.log();
-                                    _this.log('c:red', "No verified proxies :(");
-																		_this.emit('extNothing', data);
-                                    return false;
-                                }
-                                else {
-                                    var sum = _this._stats.responses.reduce(function (a, b) {
-                                        return a + b;
-                                    });
-                                    _this._stats.avg = (sum / _this._stats.good).toFixed(2);
-
-                                    _this.log();
-                                    _this.log("Processed ", "c:bold", _this._stats.total, " proxies " +
-                                    "in ", "c:bold", _this.runTime());
-                                    _this.log("c:green bold", _this._stats.good, "c:green", " proxies verified (",
-                                        "c:green bold", (_this._stats.good / _this._stats.total * 100).toFixed(2) +
-                                        '%', "c:green", ')', "c:green", " Avg latency: ", "c:green bold",
-                                        _this._stats.avg + 's');
-
-                                    _this.saveProxies();
-                                    return false;
-                                }
+                              return _this.shutdown(data);
                             }
                             else {
                                 _this.dispatchRequest(id);
@@ -291,7 +285,11 @@ Verify.prototype.main = function() {
             if (msg.cmd) {
                 switch(msg.cmd) {
                     case 'verifyProxy':
-                        _this.verifyProxy(msg.data);
+                        try {
+                          _this.verifyProxy(msg.data);
+                        } catch (e) {
+                          _this.broadcastToMaster('verifiedProxy', {'err': {'code': 'UNABLE_TO_VERIFY'}});
+                        };
                         break;
                     case 'shutdown':
                         process.disconnect();
@@ -646,45 +644,14 @@ Verify.prototype.dateStamp = function(dateObj) {
  * If you want to style start an argument with c: and then your colour(s) e.g.
  * this.log('c:bgGreen bold', 'This is bold text with a green background');
  */
-Verify.prototype.log = function() {
-    if (this.noOutput)
-        return false;
+Verify.prototype.log = function () {
+  if (this.noOutput) {
+    return false;
+  }
 
-    var args = Array.prototype.slice.call(arguments);
-    var msg = '';
-    var skipNext = false;
-    for (var i = 0; i < args.length; i++) {
-        var arg = typeof args[i] == 'object' ? JSON.stringify(args[i]) : String(args[i]),
-            next = typeof args[i] == 'object' ? JSON.stringify(args[i + 1]) : String(args[i + 1]);
+  log(Array.prototype.slice.call(arguments), this.runTime());
 
-        if (skipNext) {
-            skipNext = false;
-            continue;
-        }
-
-        if (arg && arg.substr(0,2) == 'c:') {
-            var color = arg.substr(2, arg.length);
-            color = color.split(' ');
-            if (color.length == 1)
-                msg += chalk[color[0]](next);
-            else if (color.length == 2)
-                msg += chalk[color[0]][color[1]](next);
-            else if (color.length == 3)
-                msg += chalk[color[0]][color[1]][color[2]](next);
-            skipNext = true;
-        }
-        else {
-            msg += arg;
-            skipNext = false;
-        }
-    }
-
-    var str = this.runTime() + chalk.grey('> ');
-    var noAnsi = str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
-    var padding = Array(12).join(' ');
-    var maxLength = 12;
-
-    console.log(str + padding.substring(0, maxLength - noAnsi.length) + msg);
+  return true;
 };
 
 /**
@@ -764,6 +731,37 @@ Verify.prototype.query = function(data, selector) {
 
   return $('body').find(selector).length > 0;
 }
+
+Verify.prototype.shutdown = function shutdown (data) {
+  clearTimeout(this.shutdownTimeout);
+  this.broadcastToWorkers(false, 'shutdown');
+  this.emit('extdone');
+
+  this._workersFinished = 0;
+
+  if (this._stats.good < 1) {
+    this.log();
+    this.log('c:red', 'No verified proxies');
+    this.emit('extNothing', data);
+    return false;
+  }
+
+  const sum = this._stats.responses.reduce((a, b) => {
+    return a + b;
+  });
+
+  this._stats.avg = (sum / this._stats.good).toFixed(2);
+
+  this.log();
+  this.log('Processed ', 'c:bold', this._stats.total, ' proxies '
+  + 'in ', 'c:bold', this.runTime());
+  this.log('c:green bold', this._stats.good, 'c:green', ' proxies verified (',
+      'c:green bold', (this._stats.good / this._stats.total * 100).toFixed(2)
+      + '%', 'c:green', ')', 'c:green', ' Avg latency: ', 'c:green bold', this._stats.avg + 's');
+
+  this.saveProxies();
+  return false;
+};
 
 util.inherits(Verify, EventEmitter);
 
