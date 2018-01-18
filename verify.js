@@ -291,7 +291,11 @@ Verify.prototype.main = function() {
             if (msg.cmd) {
                 switch(msg.cmd) {
                     case 'verifyProxy':
-                        _this.verifyProxy(msg.data);
+                        try {
+                          _this.verifyProxy(msg.data);
+                        } catch (e) {
+                          _this.broadcastToMaster('verifiedProxy', {'err': {'code': 'UNABLE_TO_VERIFY'}});
+                        };
                         break;
                     case 'shutdown':
                         process.disconnect();
