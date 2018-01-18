@@ -57,6 +57,8 @@ const EventEmitter = require('events').EventEmitter;
 const request = require('superagent');
 const url = require('url');
 
+const log = require('./log');
+
 require('superagent-proxy')(request);
 
 const SHUTDOWN_TIMEOUT = 1000 * 60 * 10;
@@ -642,45 +644,14 @@ Verify.prototype.dateStamp = function(dateObj) {
  * If you want to style start an argument with c: and then your colour(s) e.g.
  * this.log('c:bgGreen bold', 'This is bold text with a green background');
  */
-Verify.prototype.log = function() {
-    if (this.noOutput)
-        return false;
+Verify.prototype.log = function () {
+  if (this.noOutput) {
+    return false;
+  }
 
-    var args = Array.prototype.slice.call(arguments);
-    var msg = '';
-    var skipNext = false;
-    for (var i = 0; i < args.length; i++) {
-        var arg = typeof args[i] == 'object' ? JSON.stringify(args[i]) : String(args[i]),
-            next = typeof args[i] == 'object' ? JSON.stringify(args[i + 1]) : String(args[i + 1]);
+  log(Array.prototype.slice.call(arguments), this.runTime());
 
-        if (skipNext) {
-            skipNext = false;
-            continue;
-        }
-
-        if (arg && arg.substr(0,2) == 'c:') {
-            var color = arg.substr(2, arg.length);
-            color = color.split(' ');
-            if (color.length == 1)
-                msg += chalk[color[0]](next);
-            else if (color.length == 2)
-                msg += chalk[color[0]][color[1]](next);
-            else if (color.length == 3)
-                msg += chalk[color[0]][color[1]][color[2]](next);
-            skipNext = true;
-        }
-        else {
-            msg += arg;
-            skipNext = false;
-        }
-    }
-
-    var str = this.runTime() + chalk.grey('> ');
-    var noAnsi = str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, '');
-    var padding = Array(12).join(' ');
-    var maxLength = 12;
-
-    console.log(str + padding.substring(0, maxLength - noAnsi.length) + msg);
+  return true;
 };
 
 /**
