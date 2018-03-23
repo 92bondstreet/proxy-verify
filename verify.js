@@ -378,7 +378,14 @@ Verify.prototype.verifyProxy = function(proxy) {
           const code = err.status || err.message;
 
           clearTimeout(timer);
-          return returnBroadcast({err: {code}, headers: {}});
+
+          // if the server is cloudflare with a 503
+          // we'll try to solve the challenge
+          if (code === 503 && res.headers.server && res.headers.server.includes('cloudflare')) {
+            returnBroadcast({'err': null, 'headers': res.headers, 'data': res.text});
+          }
+
+          return returnBroadcast({'err': {code}, 'headers': {}});
         }
         var data = res.text;
 
